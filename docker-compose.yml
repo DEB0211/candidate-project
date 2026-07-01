@@ -1,0 +1,43 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: bis
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+
+  sftp:
+    image: atmoz/sftp
+    command: bonduser:bondpass:1001:100:upload/bonds
+    ports:
+      - "2222:22"
+    volumes:
+      - ./sftp/upload:/home/bonduser/upload
+
+  backend:
+    image: interviewmarketnode.azurecr.io/qa-bond-issuance-backend:0.0.1
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bis
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: app
+      BIS_SFTP_HOST: sftp
+      BIS_SFTP_PORT: 22
+      BIS_SFTP_USERNAME: bonduser
+      BIS_SFTP_PASSWORD: bondpass
+      BIS_SFTP_REMOTE_DIR: /upload/bonds
+      BIS_BUSINESS_TIMEZONE: Asia/Kuala_Lumpur
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - sftp
+
+  frontend:
+    image: interviewmarketnode.azurecr.io/qa-bond-issuance-frontend:0.0.1
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend

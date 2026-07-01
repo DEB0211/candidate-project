@@ -1,0 +1,3 @@
+isin,issuerName,bondName,currency,faceValue,couponRate
+MYBND0000BAD,MALFORMED,Missing Fields,MYR,1000.00,0.0005
+MYBND0000XX1,Bad Corp,Bad Bond,MYR,not_a_number,0.0005,2026-07-01,100000,2026-06-01,2026-06-10

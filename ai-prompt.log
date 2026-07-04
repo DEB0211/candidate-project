@@ -1,0 +1,35 @@
+# AI Interaction Log
+# Every AI interaction used while building this QA automation suite is appended
+# below in the required format.
+
+---
+timestamp: 2026-07-01T19:54:00Z
+model: Cursor Agent (Claude Opus 4.8)
+prompt: |
+  Act as a Senior Automation QA Engineer. This repository is a first-round
+  interview task for a Test Engineer role at Marketnode (blockchain-powered
+  financial market infrastructure). Understand the task in TASKS.md and PRODUCT.md
+  and plan how to complete it to good professional standards, so I can qualify for
+  the next round. The JD emphasises Java-based automation (Selenium, Playwright),
+  API testing (RestAssured/Postman), CI/CD, bug tracking, and QA methodology.
+---
+timestamp: 2026-07-01T19:58:00Z
+model: Cursor Agent (Claude Opus 4.8)
+prompt: |
+  Clarifying decisions for the plan:
+  - UI automation framework: Selenium.
+  - SFTP connection: host localhost, port 2222, username bonduser, password bondpass.
+  Build the plan accordingly.
+---
+timestamp: 2026-07-01T20:00:00Z
+model: Cursor Agent (Claude Opus 4.8)
+prompt: |
+  Implement the plan as specified (BIS QA Automation Suite): a layered Java + Maven
+  + TestNG suite using RestAssured for the API (v1 + v2), JSch for SFTP bond
+  ingestion, Selenium 4 (Page Object Model) for the web UI, and Allure for
+  reporting. Cover ingestion/validation, subscription rules, allocation, coupon,
+  maturity, system-date control, v1/v2 parity, and concurrency, plus UI subscription
+  and portfolio flows. Provide run-tests.sh, test-plan.md, defects.md, README.md,
+  and this ai-prompt.log. Follow good engineering practices and do not edit the
+  plan file.
+---

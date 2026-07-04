@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+  Default full suite.
+
+  Groups:
+    smoke       - fast sanity checks that the stack is reachable and healthy
+    api         - REST API layer (v1 + v2)
+    sftp        - bond ingestion via SFTP
+    allocation  - allocation / coupon / maturity lifecycle
+    concurrency - atomicity / oversell checks
+    parity      - API v1 vs v2 consistency
+    ui          - Selenium web flows
+
+  UI tests are grouped separately so they can be excluded in headless/CI
+  environments without a browser via: -Dgroups=api,sftp
+-->
+<!--
+  Executed sequentially on purpose: the business date (PRODUCT.md section 12) is a
+  single global singleton in the backend. Advancing it in one test would corrupt
+  the state observed by any test running concurrently, so parallelism is disabled
+  in favour of deterministic, reliable results.
+-->
+<suite name="BIS Full Regression" verbose="1" parallel="false" thread-count="1">
+
+    <listeners>
+        <listener class-name="io.qameta.allure.testng.AllureTestNg"/>
+    </listeners>
+
+    <test name="API and SFTP">
+        <groups>
+            <run>
+                <exclude name="ui"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.bis.qa.api"/>
+            <package name="com.bis.qa.sftp"/>
+        </packages>
+    </test>
+
+    <test name="Web UI">
+        <classes>
+            <class name="com.bis.qa.ui.UiSubscriptionTest"/>
+            <class name="com.bis.qa.ui.UiPortfolioTest"/>
+        </classes>
+    </test>
+
+</suite>

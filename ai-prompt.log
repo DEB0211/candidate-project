@@ -31,4 +31,19 @@ timestamp: 2026-07-04T16:23:00Z
 model: Cursor Agent (Claude Opus 4.8)
 prompt: |
   Format and structure the defects.md file and make it as traceability matrix.
-  ---
+---
+timestamp: 2026-07-04T13:32:00Z
+model: Cursor Agent (Claude Opus 4.8)
+prompt: |
+  Review this project and validate whether all the objectives in TASKS.md are
+  covered and achieved. Flag gaps and anything that doesn't meet expectations.
+---
+timestamp: 2026-07-04T13:35:00Z
+model: Cursor Agent (Claude Opus 4.8)
+prompt: |
+  Validate the repo and add the missing pieces: close the coverage gaps with real
+  tests (ISIN uniqueness, issuer/bond name empty and over-length, non-ISO
+  currency, and accept-side boundary values) and rewrite the docs so they read
+  like a working engineer wrote them rather than generated text. Do not fabricate
+  defect findings - keep defects.md honest until the stack can actually be run.
+---

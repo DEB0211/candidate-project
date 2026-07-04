@@ -48,7 +48,12 @@ public class BondValidationApiTest extends BondTestSupport {
 
         String shortIsin = IsinGenerator.ofLength(11);
         String longIsin = IsinGenerator.ofLength(13);
+        String emptyIssuer = IsinGenerator.unique();
+        String longIssuer = IsinGenerator.unique();
+        String emptyName = IsinGenerator.unique();
+        String longName = IsinGenerator.unique();
         String badCcy = IsinGenerator.unique();
+        String unassignedCcy = IsinGenerator.unique();
         String negFace = IsinGenerator.unique();
         String bigFace = IsinGenerator.unique();
         String decFace = IsinGenerator.unique();
@@ -69,7 +74,12 @@ public class BondValidationApiTest extends BondTestSupport {
                 {"ISIN shorter than 12 chars", csv(baseValid(shortIsin)), shortIsin},
                 {"ISIN longer than 12 chars", csv(baseValid(longIsin)), longIsin},
                 {"Empty ISIN", csv(baseValid("")), ",Validation Issuer"},
+                {"Empty issuerName", csv(baseValid(emptyIssuer).issuerName("")), emptyIssuer},
+                {"issuerName over 255 chars", csv(baseValid(longIssuer).issuerName("A".repeat(256))), longIssuer},
+                {"Empty bondName", csv(baseValid(emptyName).bondName("")), emptyName},
+                {"bondName over 255 chars", csv(baseValid(longName).bondName("B".repeat(256))), longName},
                 {"Invalid 2-letter currency", csv(baseValid(badCcy).currency("MY")), badCcy},
+                {"3-letter but unassigned currency (ZZZ)", csv(baseValid(unassignedCcy).currency("ZZZ")), unassignedCcy},
                 {"Negative faceValue", csv(baseValid(negFace).faceValue("-1000.00")), negFace},
                 {"faceValue above 1,000,000 max", csv(baseValid(bigFace).faceValue("1000000.01")), bigFace},
                 {"faceValue with 3 decimals", csv(baseValid(decFace).faceValue("1000.123")), decFace},

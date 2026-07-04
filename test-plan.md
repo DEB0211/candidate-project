@@ -1,97 +1,92 @@
 # Test Plan — Bond Issuance System
 
-## 1. Objective
+## What I'm trying to do
 
-Provide the engineering team with an automated, repeatable safety net that
-verifies the Bond Issuance System (BIS) behaves exactly as documented in
-[`PRODUCT.md`](PRODUCT.md). The suite treats the system as a black box and
-validates behaviour across every externally observable layer and the
-interactions between them.
+Give the team a repeatable check that BIS actually behaves the way `PRODUCT.md`
+describes. I treat the system as a black box and test every layer you can reach
+from outside — SFTP, both API versions, the web UI — plus the points where those
+layers have to agree with each other.
 
-## 2. Scope
+Most of my attention goes to the money: allocation, coupons, and maturity. A
+financial system that's wrong there is worse than one that's down, because the
+errors are quiet.
 
-**In scope**
+## Scope
 
-- Bond ingestion via SFTP (file format & field validation) — §5
-- Subscription rules (window, uniqueness, quantity, auth header, capacity) — §6
-- Allocation (full vs. proportional, floor rounding, REJECTED) — §7 & §9A
-- Coupon payments (daily amount, business-day-only accrual, weekend skip, up to maturity) — §8 & §9A
-- Maturity (principal return, weekend shift, MATURED transition) — §9 & §9A
-- System control (business date get/advance/reset, lifecycle triggers) — §12
-- API v1 ↔ v2 consistency — §11
-- Concurrency / atomicity of available size — §6
-- Web UI investor flows (subscribe, portfolio) and reconciliation with the API — §10/§11
-- Money precision via an independent `BigDecimal` oracle — §13
+Covered:
 
-**Out of scope**
+- SFTP ingestion — file format and field validation (§5)
+- Subscription rules — window, uniqueness, quantity, `X-User-Id`, capacity (§6)
+- Allocation — full vs. proportional, floor rounding, REJECTED on zero (§7, §9A)
+- Coupons — daily amount, business days only, weekend skip, through maturity (§8, §9A)
+- Maturity — principal return, weekend shift, transition to MATURED (§9, §9A)
+- System control — business date get/advance/reset and the lifecycle it triggers (§12)
+- v1 vs v2 consistency (§11)
+- Subscription atomicity under concurrency (§6)
+- UI investor flows (subscribe, portfolio) reconciled against the API (§10, §11)
+- Money precision via an independent `BigDecimal` check (§13)
 
-- Authentication/authorization (explicitly out of scope per spec).
-- Non-functional performance/load and security penetration testing (only light
-  concurrency probing is included).
-- Public-holiday calendars (spec defines only weekends as non-business days).
+Not covered, and why:
 
-## 3. Test strategy
+- Auth — the spec puts it out of scope.
+- Performance/load and security testing — out of scope; the concurrency test is
+  the only nod in that direction, and it's light.
+- Public holidays — the spec only treats weekends as non-business days.
 
-- **Layered, black-box.** Each layer (SFTP, API v1, API v2, UI) has dedicated
-  tests; cross-layer tests reconcile state between layers (e.g. a UI subscription
-  is verified through the API portfolio).
-- **Spec-driven oracle.** Expected financial values are recomputed independently
-  with exact decimal arithmetic (`FinancialCalculator`) and anchored to the
-  worked example in §9A, so a wrong-but-consistent implementation is still caught.
-- **Deterministic time control.** All lifecycle progression is driven explicitly
-  through `POST /api/system/advance-date`. Fixtures compute their book/maturity
-  dates relative to the live business date, making tests independent of the real
-  calendar and of prior test runs.
-- **Risk-based prioritisation** via Allure severities:
-  - `BLOCKER` — ingestion works, subscription works, allocation math, coupon math, maturity.
-  - `CRITICAL` — validation rejections, duplicate/timing rules, parity, concurrency.
-  - `NORMAL` — secondary flows (multi-bond files, list parity, UI portfolio).
-- **Reliability first.** The suite runs sequentially because the business date is
-  global shared state; this trades speed for deterministic, non-flaky results.
-  UI tests recreate their own data and can be excluded (`SKIP_UI=true`) in
-  browser-less environments.
+## How the suite is put together
 
-## 4. Coverage matrix
+- **Layered and black-box.** Each layer has its own tests. Where two layers
+  describe the same thing, a test reconciles them — e.g. a subscription made in
+  the browser is confirmed through the API portfolio, so a green UI test can't
+  hide a broken backend.
+- **The oracle is independent.** Expected amounts are recomputed with exact
+  decimal arithmetic (`FinancialCalculator`) and tied to the §9A worked example.
+- **Time is driven explicitly.** Nothing waits on the wall clock. Lifecycle
+  progress happens through `POST /api/system/advance-date`, and fixtures compute
+  their dates relative to the live business date.
+- **Priorities via Allure severities.** BLOCKER = ingestion, subscribe, and the
+  three money calculations. CRITICAL = validation, timing/duplicate rules,
+  parity, concurrency. NORMAL = the secondary flows.
+- **Reliability over speed.** Sequential run because of the shared business date.
+  UI tests build their own data and can be dropped with `SKIP_UI=true`.
 
-| Area | Spec §| Test class | Representative cases |
-|------|-------|-----------|----------------------|
-| SFTP ingestion (happy path) | 5 | `BondIngestionApiTest` | valid file creates bond; multi-bond file; duplicate filename not reprocessed |
-| CSV validation | 5 | `BondValidationApiTest` | 21 data-driven negatives: ISIN length/empty, currency, faceValue sign/max/decimals/non-numeric, couponRate bounds/precision, totalSize sign/max/non-integer, date ordering, date format, missing header, malformed row |
-| Subscription rules | 6 | `SubscriptionApiTest` | within window OK; before-open & after-close rejected; missing `X-User-Id`; non-positive quantity; duplicate per investor |
-| Concurrency / atomicity | 6 | `ConcurrencyApiTest` | 5 simultaneous orders vs. small capacity → no oversell |
-| Allocation | 7, 9A | `AllocationApiTest` | oversubscribed 40k/30k/50k → 33,333/25,000/41,666 (sum 99,999); undersubscribed full; zero-allocation → REJECTED |
-| Coupon payments | 8, 9A | `CouponPaymentApiTest` | daily = face×rate×qty (50.00); weekend skip; total through maturity |
+## Coverage matrix
+
+| Area | Spec § | Test class | What it checks |
+|------|--------|-----------|----------------|
+| SFTP ingestion (happy path) | 5 | `BondIngestionApiTest` | valid file creates a bond; multi-bond file; duplicate filename not reprocessed; duplicate ISIN rejected; max-limit values accepted |
+| CSV validation | 5 | `BondValidationApiTest` | 27 data-driven negatives: ISIN length/empty, issuer/bond name empty and over-length, currency length and unassigned code, faceValue sign/max/decimals/non-numeric, couponRate bounds/precision, totalSize sign/max/non-integer, date ordering, date format, missing header, malformed row |
+| Subscription rules | 6 | `SubscriptionApiTest` | in-window OK; before-open and after-close rejected; missing `X-User-Id`; non-positive quantity; duplicate per investor |
+| Concurrency | 6 | `ConcurrencyApiTest` | 5 simultaneous orders against small capacity → no oversell |
+| Allocation | 7, 9A | `AllocationApiTest` | oversubscribed 40k/30k/50k → 33,333/25,000/41,666 (sum 99,999); undersubscribed full; zero allocation → REJECTED |
+| Coupons | 8, 9A | `CouponPaymentApiTest` | daily = face×rate×qty (50.00); weekend skip; total through maturity |
 | Maturity | 9, 9A | `MaturityApiTest` | principal = face×qty; weekend → next business day; status → MATURED |
-| System date | 12 | `SystemDateApiTest` | get returns valid date; advance +1 day exactly; reset → today |
+| System date | 12 | `SystemDateApiTest` | get returns a valid date; advance moves exactly one day; reset → today |
 | API parity | 11 | `ApiVersionParityTest` | v1/v2 bond detail values equal; both lists contain the bond |
-| Web UI | 10, 11 | `UiSubscriptionTest`, `UiPortfolioTest` | list renders; subscribe via UI reflected in API; API subscription shown in UI portfolio |
+| Web UI | 10, 11 | `UiSubscriptionTest`, `UiPortfolioTest` | list renders; UI subscribe shows up in the API; API subscribe shows up in the UI portfolio |
 
-## 5. Suite structure
+## Where things live
 
-- `clients/` — REST Assured clients per API version + system control.
-- `sftp/` — JSch client and a fluent `BondCsvBuilder` for valid & malformed files.
-- `support/` — base classes (`BaseApiTest`, `BondTestSupport`, `BaseUiTest`) and a
-  shared `BondFixture` (single source for upload/poll/advance so API & UI reuse it).
-- `util/` — `FinancialCalculator` (money oracle), `DateHelper` (business days),
+- `clients/` — one REST Assured client per API version, plus system control.
+- `sftp/` — the JSch client and `BondCsvBuilder` for valid and broken files.
+- `support/` — base classes (`BaseApiTest`, `BondTestSupport`, `BaseUiTest`) and
+  `BondFixture`, the single place that does upload/poll/advance so API and UI
+  tests share it.
+- `util/` — `FinancialCalculator` (the oracle), `DateHelper` (business days),
   `IsinGenerator`, `JsonFields` (schema-tolerant reads).
-- `pages/` — `AppPage` Page Object isolating UI locators.
-- `resources/testng.xml` — sequential suite; UI grouped separately for opt-out.
+- `pages/` — `AppPage`, which owns the UI locators.
+- `resources/testng.xml` — sequential suite; UI split out so it can be skipped.
 
-## 6. Reporting
+## Trade-offs and assumptions
 
-- **Allure** produces an HTML report with steps, severities, request/response
-  logging on failures, and UI failure screenshots.
-- **Surefire** XML feeds the pass/fail summary printed by `run-tests.sh`.
-
-## 7. Trade-offs & assumptions
-
-- **Endpoint/JSON shapes** are derived from `PRODUCT.md` conventions and REST
-  norms; Swagger is the authoritative source. Response reading is deliberately
-  tolerant (multiple candidate paths) and centralised so reconciling any
-  difference touches only the client/helper layer.
-- **Sequential over parallel** for correctness given the global business date.
-- **UI depth is intentionally shallower** than the API layer: the richest
-  behaviour lives in the API/back end, so UI tests focus on the critical journey
-  and layer reconciliation rather than exhaustive UI permutations.
-- **Concurrency is best-effort**: real threads fire simultaneously, but a single
-  local backend limits how aggressively true races can be forced.
+- **Endpoints and JSON shapes** are my best guess from the `PRODUCT.md`
+  conventions and normal REST layout — Swagger is the real authority. Reading is
+  intentionally forgiving (a few candidate paths) and kept in the client/helper
+  layer, so reconciling any difference is a one-file change. This is the part I'd
+  verify first against a running stack.
+- **Sequential, not parallel** — forced by the global business date.
+- **The UI is tested shallower than the API** — the interesting logic is in the
+  backend, so the UI tests cover the main journey and the cross-layer check
+  rather than every permutation.
+- **Concurrency is best effort** — real threads fire together, but one local
+  backend only lets you push the race so hard.

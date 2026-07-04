@@ -13,6 +13,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -53,6 +54,51 @@ public class BondIngestionApiTest extends BondTestSupport {
 
         assertFalse(bondExists(second.isin),
                 "A file with a previously used name must not be reprocessed (PRODUCT.md section 5)");
+    }
+
+    @Test(groups = {"sftp"})
+    @Severity(SeverityLevel.CRITICAL)
+    public void duplicateIsin_secondBondIsRejected() {
+        // Spec section 5: ISIN must be unique across all bonds. Upload the same
+        // ISIN twice (different files) and check the second one does not create a
+        // second bond or overwrite the first.
+        LocalDate today = system.currentBusinessDate();
+        String isin = IsinGenerator.unique();
+
+        BondRecord first = BondCsvBuilder.validBond(
+                today.plusDays(5), today.plusDays(15), today.plusDays(60)).isin(isin);
+        ingestBond(first);
+        assertTrue(bondExists(isin), "first bond with this ISIN should be created");
+
+        BondRecord clash = BondCsvBuilder.validBond(
+                today.plusDays(6), today.plusDays(16), today.plusDays(61))
+                .isin(isin).issuerName("Clashing Issuer");
+        uploadCsv(BondCsvBuilder.create().addRow(clash).build());
+        sleep(5000);
+
+        // The original issuer must still be the one on record - the duplicate
+        // must not have been ingested on top of it.
+        String issuer = com.bis.qa.util.JsonFields.firstString(
+                v1.getBond(isin), "issuer_name", "issuerName", "issuer");
+        assertNotEquals(issuer, "Clashing Issuer",
+                "A duplicate ISIN must not be reprocessed or overwrite the existing bond");
+    }
+
+    @Test(groups = {"sftp"})
+    @Severity(SeverityLevel.NORMAL)
+    public void boundaryValues_atMaxLimits_areAccepted() {
+        // The negative suite covers just-over-the-limit rejections; this covers the
+        // accept side of the same boundaries so we know validation is not simply
+        // rejecting everything near the edge.
+        LocalDate today = system.currentBusinessDate();
+        BondRecord bond = BondCsvBuilder
+                .validBond(today.plusDays(5), today.plusDays(15), today.plusDays(60))
+                .faceValue("1000000.00")   // exactly the max
+                .couponRate("0.9999")       // just under 1, 4 dp
+                .totalSize(100_000_000L);   // exactly the max
+        ingestBond(bond);
+        assertTrue(bondExists(bond.isin),
+                "A bond sitting exactly on the max faceValue/totalSize limits should be accepted");
     }
 
     @Test(groups = {"sftp"})

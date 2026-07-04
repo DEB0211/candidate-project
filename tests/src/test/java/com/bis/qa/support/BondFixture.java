@@ -13,10 +13,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Single source of truth for creating and driving bonds in tests, shared by the
- * API-layer base class ({@link BondTestSupport}) and the UI base class
- * ({@link BaseUiTest}). Keeps the SFTP-upload / poll / advance-date logic in one
- * place to avoid duplication.
+ * The one place that creates bonds and drives them through their states. Both the
+ * API base class ({@link BondTestSupport}) and the UI base class ({@link BaseUiTest})
+ * go through here so the upload / poll / advance-date logic isn't duplicated.
  */
 public final class BondFixture {
 

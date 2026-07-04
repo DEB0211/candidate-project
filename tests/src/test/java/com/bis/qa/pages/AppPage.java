@@ -13,13 +13,12 @@ import java.util.List;
 /**
  * Page object for the Bond Issuance web app (frontend on port 5173).
  *
- * <p>The app is a single-page investor UI with a user switcher in the header, a
- * bond list, a subscribe form, and a portfolio view (PRODUCT.md sections 10-11).
+ * <p>The app is a single-page investor UI: a user switcher in the header, a bond
+ * list, a subscribe form, and a portfolio view (PRODUCT.md sections 10-11).
  *
- * <p><b>Locator strategy:</b> the exact DOM is not documented, so locators are
- * resilient - they prefer stable {@code data-testid} hooks and fall back to
- * accessible text. If the real markup differs, adjusting the {@code By}
- * constants here fixes every UI test without touching test logic.
+ * <p>The DOM isn't documented, so each locator tries a {@code data-testid} first
+ * and falls back to visible text. If the real markup turns out different, the
+ * {@code By} constants below are the only thing to change.
  */
 public class AppPage {
 
